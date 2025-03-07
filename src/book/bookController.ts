@@ -2,10 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import cloudinary from "../config/cloudinary";
 import path from "node:path";
-
+import fs from "fs/promises";
+import bookModal from "./bookModal";
 const createBook = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log(req.files);
+    const { title, genre } = req.body;
     // req.files will get you the files
     // we need to specify the type otherwise it will have the typesript error on the line 12
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
@@ -50,9 +51,23 @@ const createBook = async (req: Request, res: Response, next: NextFunction) => {
     });
     console.log("pdf upload result: ", pdfUploadResult);
     console.log("uploadResult", uploadResult);
+
+    // Create the book in the database
+
+    const book = await bookModal.create({
+      title,
+      genre,
+      coverImage: uploadResult.secure_url,
+      file: pdfUploadResult.secure_url,
+      author: "67cb20ab12e3634600c4893c",
+    });
+
+    // delete the local files after uploading to cloudinary
+    await Promise.all([fs.unlink(filePath), fs.unlink(pdfFilePath)]);
+
     res.status(201).json({
       message: "Book created suc  cessfully!",
-      data: req.files,
+      data: book,
     });
   } catch (error) {
     next(createHttpError(500, "Error while creating a book"));
